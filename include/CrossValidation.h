@@ -36,6 +36,7 @@ CrossValidation crossValidate( std::vector<T>& x, LinearAlgebra::Vector& y, std:
 
     std::vector< double > errors( parameters.size(), 0 );
     //perform cross validation
+#pragma omp parallel for
     for( unsigned long j = 0 ; j < kfold ; ++j ){
         unsigned long start = j * n / kfold;
         unsigned long end = ( j + 1 ) * n / kfold;
@@ -64,7 +65,9 @@ CrossValidation crossValidate( std::vector<T>& x, LinearAlgebra::Vector& y, std:
             double param = parameters[i];
             const Model<LinearAlgebra::Matrix>& model = f_train( k_train, y_train, param );
             LinearAlgebra::Vector y_hat = model.predict( k_test );
-            errors[i] += f_error( y_test, y_hat ) / (double) kfold;
+            double error = f_error( y_text, y_hat ) / (double) kfold;
+#pragma omp atomic
+            errors[i] += error;
         }
     }
 

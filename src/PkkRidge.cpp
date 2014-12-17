@@ -4,6 +4,7 @@
 #include"Kernels.h"
 #include"CrossValidation.h"
 #include<iostream>
+#include<iomanip>
 #include<fstream>
 #include<stdio.h>
 #include<getopt.h>
@@ -87,16 +88,14 @@ ostream& operator<< ( ostream& out, const string_model& model ){
     vector<string> strs = model.data;
     Vector alphas = model.weights;
     double bias = model.bias;
+
+    out << setprecision( numeric_limits<double>::digits10+2);
    
     out << "Bias = " ;
-    writeDoubleAsBytes( out, bias );
-    out << endl;
+    out << bias << endl;
     out << "String\tAlpha" << endl;
     for( unsigned long i = 0 ; i < strs.size() ; ++i ){
-        //write alphas as raw bytes to prevent loss of precision
-        out << strs[i] << "\t";
-        writeDoubleAsBytes( out, alphas[i] );
-        out << endl;
+        out << strs[i] << "\t" << alphas[i] << endl;
     }
     return out;
 }
@@ -106,7 +105,7 @@ istream& operator>> ( istream& in, string_model& model ){
     double bias;
     //discard up to equals
     in.ignore( numeric_limits<streamsize>::max(), '=' );
-    readDoubleFromBytes( in, &bias );
+    in >> bias;
     //discard remainder of bias line and header line
     string discard;
     getline( in, discard );
@@ -115,13 +114,14 @@ istream& operator>> ( istream& in, string_model& model ){
     //read strings and alphas
     vector<string> strs;
     vector<double> alphas;
+    string line;
     string str;
     double d;
-    while( !in.eof() ){
-        //need to read this way to prevent getline from splitting on newline characters that are part of the raw bytes double
-        in >> str;
-        if( !str.empty() ){
-            readDoubleFromBytes( in, &d );
+    while( getline( in, line ) ){
+        if( !line.empty() ){
+            stringstream ss( line );
+            ss >> str;
+            ss >> d;
             strs.push_back( str );
             alphas.push_back( d );
         }
@@ -130,9 +130,6 @@ istream& operator>> ( istream& in, string_model& model ){
     model.bias = bias;
     model.data = strs;
     model.weights = fromIterator( alphas.begin(), alphas.end() );
-    for( unsigned long i = 0 ; i < alphas.size() ; ++i ){
-        cerr << alphas[i] << ", " << model.weights[i] << endl;
-    }
     //set kernel to be pkk kernel -- TODO read and write kernel to file
     model.f_kernel = positionalKmerKernel<string>;
 
