@@ -1,8 +1,8 @@
 CC=g++
 CFLAGS= -c -Wall -Ofast -fopenmp -std=c++11
-SRCS=Main.cpp
+SRCS=PkkRidge.cpp
 OBJS=$(SRCS:.cpp=.o)
-EXE=main.out
+EXE=pkkridge.out
 
 all: $(SRCS) $(EXE)
 

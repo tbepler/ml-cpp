@@ -96,6 +96,9 @@ istream& operator>> ( istream& in, string_model& model ){
     model.bias = bias;
     model.data = data.strs;
     model.weights = data.y;
+    cerr << model.weights << endl;
+    //set kernel to be pkk kernel -- TODO read and write kernel to file
+    model.f_kernel = positionalKmerKernel<string>;
 
     return in;
 }
@@ -263,16 +266,143 @@ int train( int argc, char* argv[] ){
 
 }
 
-int predict( int argc, char* argv[] ){
+struct TestOpts{
+
+    string_model model;
+    Data data;
+    ofstream report_out;
+    ofstream pred_out;
+
+};
+
+void testUsage( ostream& out ){
 
     //TODO
+    out << "Usage: pkkridge test [-h] [-m FILE] -d FILE [-r FILE] [-p FILE]" << endl;
+
+}
+
+bool parseTestOpts( int argc, char* argv[], TestOpts& opts ){
+
+    static struct option long_opts[] = {
+        { "help", no_argument, 0, 'h' },
+        { "model", required_argument, 0, 'm' },
+        { "data", required_argument, 0, 'd' },
+        { "report", required_argument, 0, 'r' },
+        { "predictions", required_argument, 0, 'p' },
+        { 0, 0, 0, 0 }
+    };
+
+    ifstream model_in;
+    ifstream data_in;
+    int opt_idx = 0;
+    int c;
+
+    while( ( c = getopt_long( argc, argv, "hm:d:r:p:", long_opts, &opt_idx ) ) != -1 ){
+
+        switch( c ){
+            case 'h':
+                testUsage( cerr );
+                return false;
+            case 'm':
+                model_in.open( optarg );
+                if( !model_in.is_open() ){
+                    cerr << "Unable to open model file: " << optarg << endl;
+                    return false;
+                }
+                break;
+            case 'd':
+                data_in.open( optarg );
+                if( !data_in.is_open() ){
+                    cerr << "Unable to open data file: " << optarg << endl;
+                    return false;
+                }
+                break;
+            case 'r':
+                opts.report_out.open( optarg );
+                if( !opts.report_out.is_open() ){
+                    cerr << "Unable to open report file: " << optarg << endl;
+                    return false;
+                }
+                break;
+            case 'p':
+                opts.pred_out.open( optarg );
+                if( !opts.pred_out.is_open() ){
+                    cerr << "Unable to open predictions file: " << optarg <<endl;
+                    return false;
+                }
+                break;
+        }
+
+    }
+
+    istream& m_in = model_in.is_open() ? model_in : cin;
+    istream& d_in = data_in.is_open() ? data_in : cin;
+
+    if( &m_in == &d_in ){
+        cerr << "Error: at least one of `model' or `data' must be specified from a file" << endl;
+        testUsage( cerr );
+        return false;
+    }
+
+    string_model model;
+    m_in >> model;
+
+    Data data;
+    d_in >> data;
+    
+    opts.model = model;
+    opts.data = data;
+
+    return true;
+
+}
+
+/*
+Options:
+--help
+--model
+--data
+--report
+--predictions
+*/
+int test( int argc, char* argv[] ){
+
+    TestOpts opts;
+    if( !parseTestOpts( argc, argv, opts ) ){
+        return 1;
+    }
+
+    string_model model = opts.model;
+    vector<string> strs = opts.data.strs;
+    Vector y = opts.data.y;
+
+    ostream& report_out = opts.report_out.is_open() ? opts.report_out : cout;
+   
+    report_out << "Testing{" << endl;
+    Vector y_hat = model.predict( strs );
+    if( opts.pred_out.is_open() ){
+        opts.pred_out << "Actual\tPredicted" << endl;
+        for( long i = 0 ; i < y.size() ; ++i ){
+            opts.pred_out << y[i] << "\t" << y_hat[i] << endl;
+        }
+        opts.pred_out.close();
+    }
+
+    double mse = meanSquaredError( y, y_hat );
+    double r = pearson( y, y_hat );
+    double r2 = pow( r, 2 );
+    report_out << "MSE = " << mse << endl;
+    report_out << "r2 = " << r2 << endl;
+    report_out << "}" << endl;
+
     return 0;
 
 }
 
 void usage( ostream& out ){
     out << "Usage: pkkridge [-h/--help] command [command-opts]" << endl;
-    out << "Commands:" << endl << "train" << endl << "predict" << endl;
+    out << "Commands:" << endl << "train" << endl << "test" << endl;
 }
 
 int main( int argc, char* argv[] ){
@@ -280,8 +410,8 @@ int main( int argc, char* argv[] ){
     if( argc > 1 ){
         if( strcmp( argv[1], "train" ) == 0 ){
             return train( argc - 1, argv + 1 );
-        }else if( strcmp( argv[1], "predict" ) == 0 ){
-            return predict( argc - 1, argv + 1 );
+        }else if( strcmp( argv[1], "test" ) == 0 ){
+            return test( argc - 1, argv + 1 );
         }else if( strcmp( argv[1], "-h" ) == 0 ){
 
         }else if( strcmp( argv[1], "--help" ) == 0 ){
