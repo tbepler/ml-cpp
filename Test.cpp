@@ -1,5 +1,7 @@
 #include"LinearAlgebra.h"
 #include"Regression.h"
+#include"Model.h"
+#include"Kernels.h"
 #include<iostream>
 #include<fstream>
 #include<Eigen/Dense>
@@ -8,42 +10,94 @@ using namespace std;
 using namespace LinearAlgebra;
 using namespace Regression;
 
+struct Data{
 
+    vector<string> strs;
+    Vector y;
+
+};
+
+void readStrings( istream& in, Data& data ){
+
+    vector<string> strs;
+    vector<double> vals;
+    string line;
+    while( getline( in, line ) ){
+        if( !line.empty() ){
+            stringstream ss( line );
+            string str;
+            double val;
+            ss >> str;
+            ss >> val;
+            strs.push_back( str );
+            vals.push_back( val );
+        }
+    }
+
+    Vector y( vals.size() );
+    for( unsigned long i = 0 ; i < vals.size() ; ++i ){
+        y[i] = vals[i];
+    }
+
+    data.strs = strs;
+    data.y = y;
+
+}
+
+ostream& operator<< ( ostream& out, const Data& data ){
+    vector<string> strs = data.strs;
+    Vector y = data.y;
+    for( unsigned long i = 0 ; i < strs.size() ; ++i ){
+        out << strs[i] << " " << y[i] << endl;
+    }
+    return out;
+}
+
+istream& operator>> ( istream& in, Data& data ){
+    readStrings( in, data );
+    return in;
+}
 
 int main( int argc, char* argv[] ){
 
-    ifstream in;
-    in.open( argv[1] );
-    Matrix a = readMatrix( in );
-    cout << "Matrix A:" << endl;
-    cout << a << endl << endl;
-    in.close();
+    fstream fin;
+    fin.open( argv[1] );
+    Data train;
+    fin >> train;
+    fin.close();
 
-    in.open( argv[2] );
-    Matrix b = readMatrix( in );
-    cout << "Matrix b:" << endl;
-    cout << b << endl << endl;
-    in.close();
+    cout << "Training data:" << endl;
+    cout << train << endl;
 
-    cout << "Matrix A^T * A:" << endl;
-    cout << a.transpose() * a << endl << endl;
+    double(*f_kernel)(const string&,const string&) = positionalKmerKernel<string>;
+    const Model< vector<string> >& model = ridge( train.strs, train.y, 1, f_kernel );
 
-    Matrix x = leastSquares<Matrix>( a, b );
-    cout << "Matrix x:" << endl;
-    cout << x << endl << endl;
+    Vector y_hat = model.predict( train.strs );
+    double mse = meanSquaredError( train.y, y_hat );
+    
+    cout << "Training predictions:" << endl;
+    cout << "String\tActual\tPredicted" << endl;
+    for( int i = 0 ; i < y_hat.size() ; ++i ){
+        cout << train.strs[i] << "\t" << train.y[i] << "\t" << y_hat[i] << endl;
+    }
+    cout << "MSE = " << mse << endl << endl;
 
-    cout << "Matrix A*x:" << endl;
-    cout << a * x << endl << endl;
+    for( int i = 2 ; i < argc ; ++i ){
+        Data test;
+        fstream fin;
+        fin.open( argv[i] );
+        fin >> test;
+        fin.close();
 
-    double lambda;
-    int i;
-    for( i = 10 ; i >= 0 ; i -= 5 ){
-        lambda = i;
-        Matrix alpha = ridge( rows( a ), b, lambda, dot<Row> );
-        cout << "Ridge alphas with lambda = " << lambda << ":" << endl;
-        cout << alpha << endl << endl;
-        cout << "Matrix K^T*alpha:" << endl;
-        cout << kernelMatrix( rows( a ), dot<Row> ).transpose() * alpha << endl << endl;
+        y_hat = model.predict( test.strs );
+        mse = meanSquaredError( test.y, y_hat );
+    
+        cout << argv[i] << " predictions:" << endl;
+        cout << "String\tActual\tPredicted" << endl;
+        for( int i = 0 ; i < y_hat.size() ; ++i ){
+            cout << test.strs[i] << "\t" << test.y[i] << "\t" << y_hat[i] << endl;
+        }
+        cout << "MSE = " << mse << endl << endl;
     }
 
 

@@ -5,11 +5,14 @@
 #include<iostream>
 #include<string>
 #include<vector>
+#include<algorithm>
+#include<cmath>
 
 namespace LinearAlgebra{
 
     typedef Eigen::MatrixXd Matrix;
     typedef Eigen::MatrixXd::RowXpr Row;
+    typedef Eigen::VectorXd Vector;
 
     template< typename M, typename R = typename M::RowXpr >
     class RowAccessor{
@@ -35,18 +38,52 @@ namespace LinearAlgebra{
         return access;
     }
 
-    template<typename X, typename A, typename B>
-    inline X solve( const A& a, const B& b){
+    inline Matrix constant( unsigned long n, unsigned long m, double val ){
+        return Matrix::Constant( n, m, val );
+    }
+
+    inline Vector constant( unsigned long n, double val ){
+        return Vector::Constant( n, val );
+    }
+
+    template< class M >
+    inline M center( const M& matrix ){
+        M centered = matrix;
+        centered.rowwise() -= matrix.colwise().mean();
+        return centered;
+    }
+
+    inline Vector solve( const Matrix& a, const Vector& b){
         return a.ldlt().solve( b );
         //return a.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve( b );
         //return (a.transpose() * a).ldlt().solve(a.transpose() * b);
     }
 
-    template<typename X, typename A, typename B>
-    inline X leastSquares( const A& a, const B& b){
+    template<typename A, typename B>
+    inline Vector leastSquares( const A& a, const B& b){
         //return a.ldlt().solve( b );
         //return a.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve( b );
         return (a.transpose() * a).ldlt().solve(a.transpose() * b);
+    }
+
+    template< class V >
+    inline double meanSquaredError( const V& v0, const V& v1 ){
+        return ( v0 - v1 ).squaredNorm() / v0.size();
+    }
+
+    template< class V >
+    inline double variance( const V& v ){
+        return ( v - constant( v.size(), v.mean() ) ).squaredNorm() / v.size();
+    }
+
+    template< class V >
+    inline double stddev( const V& v ){
+        return std::sqrt( variance( v ) );
+    }
+
+    template< class V >
+    inline double pearson( const V& v0, const V& v1 ){
+        return ( (v0.array() - v0.mean()).array() * (v1.array() - v1.mean()).array() ).sum() / ( stddev( v0 ) * stddev( v1 ) * v0.size() );
     }
 
     template<typename V>

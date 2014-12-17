@@ -1,4 +1,5 @@
 *.swp
+.depend
 
 # Compiled Object files
 *.slo
