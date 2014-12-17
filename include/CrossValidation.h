@@ -7,6 +7,7 @@
 #include<vector>
 #include<algorithm>
 #include<cmath>
+#include<omp.h>
 
 struct CrossValidation{
 
@@ -65,7 +66,7 @@ CrossValidation crossValidate( std::vector<T>& x, LinearAlgebra::Vector& y, std:
             double param = parameters[i];
             const Model<LinearAlgebra::Matrix>& model = f_train( k_train, y_train, param );
             LinearAlgebra::Vector y_hat = model.predict( k_test );
-            double error = f_error( y_text, y_hat ) / (double) kfold;
+            double error = f_error( y_test, y_hat ) / (double) kfold;
 #pragma omp atomic
             errors[i] += error;
         }

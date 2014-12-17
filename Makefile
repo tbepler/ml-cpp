@@ -10,11 +10,12 @@ SRCS=$(shell find $(SRCDIR) -type f -name *.cpp)
 OBJS=$(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SRCS:.cpp=.o))
 TESTS=$(shell find $(TESTDIR) -type f -name *.cpp)
 INC= -I include
+LIB= -lgomp
 
 all: $(SRCS) $(TARGET) tests
 
 $(TARGET): $(OBJS)
-	$(CC) $^ -o $@
+	$(CC) $^ $(LIB) -o $@
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(BUILDDIR)
