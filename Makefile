@@ -1,20 +1,35 @@
 CC=g++
-CFLAGS= -c -Wall -Ofast -fopenmp -std=c++11
-SRCS=PkkRidge.cpp
-OBJS=$(SRCS:.cpp=.o)
-EXE=pkkridge.out
+CFLAGS= -Wall -Ofast -fopenmp -std=c++11
 
-all: $(SRCS) $(EXE)
+SRCDIR=src
+BUILDDIR=build
+TESTDIR=tests
+TARGET=bin/pkkridge.out
 
-$(EXE): $(OBJS)
-	$(CC) $(OBJS) -o $@
+SRCS=$(shell find $(SRCDIR) -type f -name *.cpp)
+OBJS=$(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SRCS:.cpp=.o))
+TESTS=$(shell find $(TESTDIR) -type f -name *.cpp)
+INC= -I include
 
-$(OBJS): $(SRCS)
-	$(CC) $(CFLAGS) $< -o $@
+all: $(SRCS) $(TARGET) tests
+
+$(TARGET): $(OBJS)
+	$(CC) $^ -o $@
+
+$(BUILDDIR)/%.o: $(SRCDIR)/%.cpp
+	@mkdir -p $(BUILDDIR)
+	$(CC) $(CFLAGS) -c $(INC) $< -o $@
+
+tests:
+	@mkdir -p bin/$(TESTDIR)
+	$(foreach var, $(TESTS), $(CC) $(CFLAGS) $(INC) var -o bin/$(TESTDIR)/$(var:.cpp=.out))
+
+clean:
+	@rm -r $(BUILDDIR) $(TARGET)
 
 depend: .depend
 
-.depend: $(SRCS)
+.depend: $(SRCS) $(TESTS)
 	rm -f ./.depend
 	$(CC) $(CFLAGS) -MM $^>> ./.depend;
 

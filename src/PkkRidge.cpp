@@ -69,7 +69,8 @@ ostream& operator<< ( ostream& out, const string_model& model ){
     vector<string> strs = model.data;
     Vector alphas = model.weights;
     double bias = model.bias;
-    
+   
+    out.precision( 15 );
     out << "Bias = " << bias << endl;
     out << "String\tAlpha" << endl;
     for( unsigned long i = 0 ; i < strs.size() ; ++i ){
@@ -220,7 +221,7 @@ int train( int argc, char* argv[] ){
     ostream& model_out = opts.model_out.is_open() ? opts.model_out : cout;
     ostream& report_out = opts.report_out.is_open() ? opts.report_out : cerr;
 
-    double(*f_kernel)(const string&,const string&) = positionalKmerKernel<string>;
+    string_kernel f_kernel = positionalKmerKernel<string>;
 
     double lambda;
     if( lambdas.size() > 1 ){
