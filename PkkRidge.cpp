@@ -96,7 +96,6 @@ istream& operator>> ( istream& in, string_model& model ){
     model.bias = bias;
     model.data = data.strs;
     model.weights = data.y;
-    cerr << model.weights << endl;
     //set kernel to be pkk kernel -- TODO read and write kernel to file
     model.f_kernel = positionalKmerKernel<string>;
 
@@ -345,15 +344,16 @@ bool parseTestOpts( int argc, char* argv[], TestOpts& opts ){
         return false;
     }
 
-    string_model model;
-    m_in >> model;
+    m_in >> opts.model;
+    d_in >> opts.data;
 
-    Data data;
-    d_in >> data;
+    if( model_in.is_open() ){
+        model_in.close();
+    }
+    if( data_in.is_open() ){
+        data_in.close();
+    }
     
-    opts.model = model;
-    opts.data = data;
-
     return true;
 
 }
