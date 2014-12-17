@@ -65,7 +65,7 @@ namespace LinearAlgebra{
     }
 
     inline Vector solve( const Matrix& a, const Vector& b){
-        return a.ldlt().solve( b );
+        return a.llt().solve( b );
         //return a.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve( b );
         //return (a.transpose() * a).ldlt().solve(a.transpose() * b);
     }
