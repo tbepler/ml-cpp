@@ -65,16 +65,38 @@ istream& operator>> ( istream& in, Data& data ){
     return in;
 }
 
+inline void writeDoubleAsBytes( ostream& out, double d ){
+    char* bytes = reinterpret_cast<char*>( &d );
+    //prefix with d
+    out << 'd';
+    //write bytes out to stream
+    out.write( bytes, sizeof( double ) );
+}
+
+inline void readDoubleFromBytes( istream& in, double* d ){
+    //discard up to d
+    in.ignore( numeric_limits<streamsize>::max(), 'd' );
+    //read sizeof( double ) bytes
+    char bytes[ sizeof( double ) ];
+    in.read( bytes, sizeof( double ) );
+    //write into double
+    memcpy( d, bytes, sizeof( double ) );
+}
+
 ostream& operator<< ( ostream& out, const string_model& model ){
     vector<string> strs = model.data;
     Vector alphas = model.weights;
     double bias = model.bias;
    
-    out.precision( 15 );
-    out << "Bias = " << bias << endl;
+    out << "Bias = " ;
+    writeDoubleAsBytes( out, bias );
+    out << endl;
     out << "String\tAlpha" << endl;
     for( unsigned long i = 0 ; i < strs.size() ; ++i ){
-        out << strs[i] << "\t" << alphas[i] << endl;
+        //write alphas as raw bytes to prevent loss of precision
+        out << strs[i] << "\t";
+        writeDoubleAsBytes( out, alphas[i] );
+        out << endl;
     }
     return out;
 }
@@ -84,19 +106,33 @@ istream& operator>> ( istream& in, string_model& model ){
     double bias;
     //discard up to equals
     in.ignore( numeric_limits<streamsize>::max(), '=' );
-    in >> bias;
+    readDoubleFromBytes( in, &bias );
     //discard remainder of bias line and header line
     string discard;
     getline( in, discard );
     getline( in, discard );
 
-    //read strings and alphas using data struct
-    Data data;
-    in >> data;
+    //read strings and alphas
+    vector<string> strs;
+    vector<double> alphas;
+    string str;
+    double d;
+    while( !in.eof() ){
+        //need to read this way to prevent getline from splitting on newline characters that are part of the raw bytes double
+        in >> str;
+        if( !str.empty() ){
+            readDoubleFromBytes( in, &d );
+            strs.push_back( str );
+            alphas.push_back( d );
+        }
+    }
 
     model.bias = bias;
-    model.data = data.strs;
-    model.weights = data.y;
+    model.data = strs;
+    model.weights = fromIterator( alphas.begin(), alphas.end() );
+    for( unsigned long i = 0 ; i < alphas.size() ; ++i ){
+        cerr << alphas[i] << ", " << model.weights[i] << endl;
+    }
     //set kernel to be pkk kernel -- TODO read and write kernel to file
     model.f_kernel = positionalKmerKernel<string>;
 

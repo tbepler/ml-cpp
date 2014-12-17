@@ -6,6 +6,7 @@
 #include<string>
 #include<vector>
 #include<algorithm>
+#include<iterator>
 #include<cmath>
 
 namespace LinearAlgebra{
@@ -38,6 +39,16 @@ namespace LinearAlgebra{
         return access;
     }
 
+    template< typename It >
+    Vector fromIterator( It start, It end ){
+        Vector v( std::distance( start, end ) );
+        unsigned long i = 0;
+        for( ; start != end ; ++start ){
+            v[i++] = *start;
+        }
+        return v;
+    }
+    
     inline Matrix constant( unsigned long n, unsigned long m, double val ){
         return Matrix::Constant( n, m, val );
     }
