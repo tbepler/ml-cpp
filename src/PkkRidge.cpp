@@ -149,7 +149,7 @@ struct TrainOpts{
 };
 
 void trainUsage( ostream& out ){
-    out << "Usage: pkkridge train [-h] [-d FILE] [-l DOUBLE [DOUBLES...]] [-k INT] [-m FILE] [-p FILE] [-r FILE]" << endl;
+    out << "Usage: pkkridge train [-h/--help] [-d/--data FILE] [-l/--lambdas DOUBLE [DOUBLES...]] [-k/--kfold INT] [-m/--model FILE] [-p/--predictions FILE] [-r/--report FILE]" << endl;
     //TODO
 }
 
@@ -311,7 +311,7 @@ struct TestOpts{
 void testUsage( ostream& out ){
 
     //TODO
-    out << "Usage: pkkridge test [-h] [-m FILE] -d FILE [-r FILE] [-p FILE]" << endl;
+    out << "Usage: pkkridge test [-h/--help] [-m/--model FILE] -d/--data FILE [-r/--report FILE] [-p/--predictions FILE]" << endl;
 
 }
 
@@ -434,9 +434,167 @@ int test( int argc, char* argv[] ){
 
 }
 
+struct ScoreOpts{
+
+    string_model model;
+    ifstream in;
+    ofstream out;
+
+};
+
+void scoreUsage( ostream& out ){
+
+    out << "Usage: pkkridge score [-h/--help] -m/--model FILE [-i/--input FILE] [-o/--output FILE]" << endl;
+
+}
+
+bool parseScoreOpts( int argc, char* argv[], ScoreOpts& opts ){
+
+    static struct option long_opts[] = {
+        { "help", no_argument, 0, 'h' },
+        { "model", required_argument, 0, 'm' },
+        { "input", required_argument, 0, 'i' },
+        { "output", required_argument, 0, 'o' },
+        { 0, 0, 0, 0 }
+    };
+
+    bool no_model = true;
+    ifstream model_in;
+    int opt_idx = 0;
+    int c;
+
+    while( ( c = getopt_long( argc, argv, "hm:i:o:", long_opts, &opt_idx ) ) != -1 ){
+        switch( c ){
+            case 'h':
+                scoreUsage( cerr );
+                return false;
+            case 'm':
+                model_in.open( optarg );
+                no_model = false;
+                if( !model_in.is_open() ){
+                    cerr << "Unable to open model file: " << optarg << endl;
+                    return false;
+                }
+                break;
+            case 'i':
+                opts.in.open( optarg );
+                if( !opts.in.is_open() ){
+                    cerr << "Unable to open input file: " << optarg << endl;
+                    return false;
+                }
+                break;
+            case 'o':
+                opts.out.open( optarg );
+                if( !opts.out.is_open() ){
+                    cerr << "Unable to open output file: " << optarg << endl;
+                    return false;
+                }
+                break;
+        }
+    }
+
+    if( no_model ){
+        cerr << "Model file is required" << endl;
+        scoreUsage( cerr );
+        return false;
+    }
+
+    model_in >> opts.model;
+    model_in.close();
+
+    return true;
+
+}
+
+inline string& upper( string& str ){
+    for( size_t i = 0 ; i < str.size() ; ++i ){
+        str[i] = toupper( str[i] );
+    }
+    return str;
+}
+
+inline char comp( char c ){
+
+    switch( c ){
+        case 'A': return 'T';
+        case 'C': return 'G';
+        case 'G': return 'C';
+        case 'T': return 'A';
+    }
+    return c;
+
+}
+
+inline string rvscomp( const string& str ){
+
+    string rc;
+    for( long i = str.size() - 1 ; i >= 0 ; --i ){
+        rc += comp( str[i] );
+    }
+    return rc;
+
+}
+
+int score( int argc, char* argv[] ){
+
+    ScoreOpts opts;
+    if( !parseScoreOpts( argc, argv, opts ) ){
+        return 1;
+    }
+
+    istream& in = opts.in.is_open() ? opts.in : cin;
+    ostream& out = opts.out.is_open() ? opts.out : cout;
+
+    string_model model = opts.model;
+    size_t size = model.data[0].size();
+
+    //parse input line by line
+    string line;
+    string seq;
+    string label;
+    vector<string> substrs;
+    while( getline( in, line ) ){
+        if( !line.empty() ){
+            stringstream ss( line );
+            ss >> seq;
+            ss >> label;
+            //upper case the sequence
+            upper( seq );
+            //ignore sequences containing anything other than A, C, G, T
+            bool seqValid = true;
+            char c;
+            for( size_t i = 0 ; i < seq.size() ; ++i ){
+                c = seq[i];
+                if( c != 'A' && c != 'C' && c != 'G' && c != 'T' ){
+                    seqValid = false;
+                    break;
+                }
+            }
+            if( !seqValid ){
+                continue;
+            }
+            //get reverse compliment of seq
+            string rvs = rvscomp( seq );
+
+            substrs.clear();
+            for( size_t i = 0 ; i < seq.size() - size + 1; ++i ){
+                substrs.push_back( seq.substr( i, size ) );
+                substrs.push_back( rvs.substr( i, size ) );
+            }
+
+            Vector preds = model.predict( substrs );
+            out << label << " " << preds.maxCoeff() << endl;
+            
+        }
+    }
+
+    return 0;
+
+}
+
 void usage( ostream& out ){
     out << "Usage: pkkridge [-h/--help] command [command-opts]" << endl;
-    out << "Commands:" << endl << "train" << endl << "test" << endl;
+    out << "Commands:" << endl << "train" << endl << "test" << endl << "score" << endl;
 }
 
 int main( int argc, char* argv[] ){
@@ -446,6 +604,8 @@ int main( int argc, char* argv[] ){
             return train( argc - 1, argv + 1 );
         }else if( strcmp( argv[1], "test" ) == 0 ){
             return test( argc - 1, argv + 1 );
+        }else if( strcmp( argv[1], "score" ) == 0 ){
+            return score( argc - 1, argv + 1 );
         }else if( strcmp( argv[1], "-h" ) == 0 ){
 
         }else if( strcmp( argv[1], "--help" ) == 0 ){
